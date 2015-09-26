@@ -15,6 +15,7 @@ from InstsAndQt.Instruments import ArduinoWavemeter
 from InstsAndQt.customQt import *
 import copy
 import os
+import time
 from arduinoWindow_ui import Ui_ArduinoWavemeter
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -41,13 +42,14 @@ except:
 
 class ArduinoWavemeterWindow(QtGui.QMainWindow):
     thQueryingLoop = TempThread()
-    sigUpdateGraphs = QtCore.pyqtSignal()
+    sigUpdateGraphs = QtCore.pyqtSignal(object)
     def __init__(self, *arg, **kwargs):
         super(ArduinoWavemeterWindow, self).__init__(*arg, **kwargs)
         self.initUI()
         self.arduino = None
         self.doLoop = True
-        self.arduinoData = None
+        self.arduinoData = [0]
+        self.fftData = [0]
 
         self.ui.cGPIB.currentIndexChanged.connect(self.openArduino)
         self.openArduino()
@@ -59,6 +61,9 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
     def initUI(self):
         self.ui = Ui_ArduinoWavemeter()
         self.ui.setupUi(self)
+
+        self.ui.splitter_2.setStretchFactor(0, 10)
+        self.ui.splitter_2.setStretchFactor(1, 1)
 
         resources = list(visa.ResourceManager().list_resources())
         resources.append('Fake')
@@ -73,9 +78,10 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
 
         self.pFFT = self.ui.gFFT.plot(pen='k')
         pi = self.ui.gFFT.plotItem
-        pi.setTitle('Real Space Output')
-        pi.setLabel('left', 'Signal')
-        pi.setLabel('bottom', 'Pixel')
+        pi.setTitle('Frequency Space Output')
+        pi.setLabel('left', 'Mag')
+        pi.setLabel('bottom', 'Pixel-1')
+        pi.setLogMode(y=True)
 
         self.show()
 
@@ -108,13 +114,24 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
     def loopArduinoCalls(self):
         while self.doLoop:
             try:
-                self.arduinoData = self.arduino.read_values(self.ui.tExposure.value())
-                self.sigUpdateGraphs.emit()
+                newData = self.arduino.read_values(self.ui.tExposure.value())
+                if not newData:
+                    self.sigUpdateGraphs.emit('r')
+                    continue
+                self.arduinoData = newData
+                self.fftData = np.abs(np.fft.rfft(newData))
+
+                self.sigUpdateGraphs.emit('k')
             except AttributeError:
                 pass # happens before you open the resource
+            time.sleep(0.5)
 
-    def updateGraphs(self):
-        self.pRealSpace.setData(self.arduinoData)
+    def updateGraphs(self, pen='k'):
+        try:
+            self.pRealSpace.setData(self.arduinoData, pen=pen)
+            self.pFFT.setData(self.fftData, pen=pen)
+        except Exception as e:
+            print self.arduinoData, type(self.arduinoData)
 
     def closeEvent(self, *args, **kwargs):
         self.doLoop = False
