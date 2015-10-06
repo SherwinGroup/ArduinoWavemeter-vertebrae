@@ -15,6 +15,7 @@ from InstsAndQt.Instruments import ArduinoWavemeter
 from InstsAndQt.customQt import *
 import copy
 import os
+import glob
 import time
 from arduinoWindow_ui import Ui_ArduinoWavemeter
 pg.setConfigOption('background', 'w')
@@ -83,6 +84,16 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
         pi.setLabel('bottom', 'Pixel-1')
         pi.setLogMode(y=True)
 
+        self.debugElements = [
+            self.ui.gRealSpace,
+            self.ui.gFFT,
+            self.ui.bSave,
+            self.ui.gbSaveName
+        ]
+        self.ui.mExtrasDebugmode.triggered.connect(self.toggleDebugFeatures)
+        self.ui.bSave.clicked.connect(self.saveOutput)
+        self.toggleDebugFeatures(False)
+
         self.show()
 
 
@@ -127,11 +138,27 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
             time.sleep(0.5)
 
     def updateGraphs(self, pen='k'):
+        if not self.ui.mExtrasDebugmode.isChecked():
+            return
         try:
             self.pRealSpace.setData(self.arduinoData, pen=pen)
             self.pFFT.setData(self.fftData, pen=pen)
         except Exception as e:
             print self.arduinoData, type(self.arduinoData)
+
+    def toggleDebugFeatures(self, b):
+        for e in self.debugElements:
+            e.setVisible(b)
+
+    def saveOutput(self):
+        try:
+            baseText = str(self.ui.tSaveName.text())
+            filelist = glob.glob('{}*.txt'.format(baseText))
+            print "there are tehse files already,", filelist
+            newname = '{}_{:03d}.txt'.format(baseText, len(filelist))
+            np.savetxt(newname, self.arduinoData, fmt='%d')
+        except Exception as e:
+            print "error saving", e
 
     def closeEvent(self, *args, **kwargs):
         self.doLoop = False
@@ -141,7 +168,7 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
             log.error("Error waiting for thread to close {}".format(e))
 
         self.arduino.close()
-        super(ArduinoWavemeterWindow, self).closeEvent(*args, **kwargs)
+        self.close()
 
 
 
