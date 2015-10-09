@@ -17,6 +17,7 @@ import copy
 import os
 import glob
 import time
+from FaustRealDeal import getWavelength
 from arduinoWindow_ui import Ui_ArduinoWavemeter
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -51,6 +52,9 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
         self.doLoop = True
         self.arduinoData = [0]
         self.fftData = [0]
+
+        self.wavelengthNM = 0.0
+        self.wavelengthCM = 0.0
 
         self.ui.cGPIB.currentIndexChanged.connect(self.openArduino)
         self.openArduino()
@@ -130,6 +134,7 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
                     self.sigUpdateGraphs.emit('r')
                     continue
                 self.arduinoData = newData
+                self.doWavelengthCalculation()
                 self.fftData = np.abs(np.fft.rfft(newData))
 
                 self.sigUpdateGraphs.emit('k')
@@ -137,7 +142,25 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
                 pass # happens before you open the resource
             time.sleep(0.5)
 
+    def doWavelengthCalculation(self):
+        try:
+            wl = getWavelength(self.arduinoData)
+        except Exception as e:
+            print "Error calculating wavelength", e
+            import traceback
+            traceback.print_stack()
+        else:
+            if wl is None:
+                wl = -1
+                # MessageDialog("Error with fit!")
+            self.wavelengthNM = wl
+            self.wavelengthCM = 1e7/wl
+
+
     def updateGraphs(self, pen='k'):
+        if not pen=='r':
+            self.ui.tWavelengthnm.setText(str(self.wavelengthNM))
+            self.ui.tWavelengthcm.setText(str(self.wavelengthCM))
         if not self.ui.mExtrasDebugmode.isChecked():
             return
         try:
