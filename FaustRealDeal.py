@@ -34,7 +34,10 @@ rcParams['ytick.major.width'] = 4
 #xticks[-1].tick1On = False
 #fig.tight_layout(pad=0.1)
 
-from getSpacingandPhase import fitInterference, getPeaks
+# from getSpacingandPhase import getPeaks
+from fortranPeakFinder import fullGetSpacingAndPhase as fitInterference
+from fortranPeakFinder import getPeaks
+from getSpacingandPhase import getPeaks as qdPeaks
 
 def n(l):
     #http://refractiveindex.info/?shelf=main&book=SiO2&page=Malitson
@@ -142,49 +145,51 @@ def p(l, alph=None, eps=None, a=None, S0=None, e0=None):
             Nir*l12(l, alph, eps, a, S0, e0) + l34(l, alph, eps, a, S0, e0) + l5(l, alph, eps, a, S0, e0)
         )
 
-def getWavelength(data, debugging=True):
-        spacing, phase = fitInterference(data)
-        if spacing<0:
-            print "Bad spacing value!"
-            return
+def getWavelength(data, debugging=None):
+    if debugging is not None:
+        if not isinstance(debugging, list):
+            debugging = None
 
-        lEst0 = spacing * dpda(750, alph, eps)
+    alph = 50.8325 * np.pi/180  # 596.335
+    eps = 0.0242377 * np.pi/180 # 596.335
+    S0 = 1.8909e8
+    e0 = 0.978584e6
+    leftSideOfCCD = 14e3 * 512
+    a = leftSideOfCCD
+
+    spacing, phase = fitInterference(data)
+
+    if spacing<=0:
+        print "Error, bad spacing"
+        return
+    if debugging is not None:
+        debugging.append([spacing, phase])
+        pks = getPeaks(data)
+        firstPeak = qdPeaks(data)[1]
+        debugging.append(np.arange(0, len(pks))+int(firstPeak/spacing))
+        debugging.append(pks)
+    numIters = 3
+
+    lOld = spacing * dpda(750, alph, eps)
+    lHistory = [lOld]
+    pHistory = [0]
+    # lHistory.append(lOld)
+    for ii in range(numIters):
+        lNew = spacing * dpda(lOld, alph, eps)
+        p0 = p(lNew, alph, eps, a, S0, e0)
+        o = (p0/lNew)
+        pHistory.append(o)
+        o = np.round(o)
+        lNew = p0/(o + phase - 0.5)
+        lHistory.append(lNew)
         if debugging:
-            print "\tInitial estimate:", lEst0
+            print "\t iter: {}, o={}, lNew={}".format(ii, pHistory[-1], lNew)
+        lOld = lNew
 
-        lEst1 = spacing * dpda(lEst0, alph, eps)
-        if debugging:
-            print "\tSecondary estimate:", lEst1
+    pHistory[0] = pHistory[1]
 
-        p0 = p(lEst1, alph, eps, 0, S0, e0)
-        totalPhase = p0/lEst1 + phase
+    return lNew
 
-        if debugging:
-            print "\tTotal phase:", totalPhase
-        lEst2 = p0/(totalPhase - 0.5)
-        if debugging:
-            print "\tNext estimate:", lEst2
-
-
-
-        lEst3 = spacing * dpda(lEst2, alph, eps)
-        if debugging:
-            print "\tInitial estimate:", lEst3
-
-        lEst4 = spacing * dpda(lEst3, alph, eps)
-        if debugging:
-            print "\tSecondary estimate:", lEst4
-
-        p0 = p(lEst4, alph, eps, 0, S0, e0)
-        totalPhase = p0/lEst4 + phase
-        
-        if debugging:
-            print "\tTotal phase:", totalPhase
-        lEst5 = p0/(totalPhase - 0.5)
-        if debugging:
-            print "\tNext estimate:", lEst5
-
-        return lEst5
 
 
 if __name__ == '__main__':
@@ -199,17 +204,21 @@ if __name__ == '__main__':
     data = np.loadtxt(list632[0])
 
 
-    alph = 45.147591956 * np.pi/180
-    eps = 0.0239329726129 * np.pi/180
-    e0 = 1.0e6
-    S0 = 1.90e8
+    alph = 50.8325 * np.pi/180  # 596.335
+    eps = 0.0242377 * np.pi/180 # 596.335
+    S0 = 1.8909e8
+    e0 = 0.978584e6
 
     l = []
-    for f in list632:
+    for f in list689:
         data = np.loadtxt(f)
+        data = data[20:-6]
+        data -= min(data)
         l.append(getWavelength(data, debugging=True))
 
     print np.std(l)
+    print l
+    plt.show()
 
 
 

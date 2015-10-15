@@ -52,6 +52,7 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
         self.doLoop = True
         self.arduinoData = [0]
         self.fftData = [0]
+        self.debug = [[], [], []]
 
         self.wavelengthNM = 0.0
         self.wavelengthCM = 0.0
@@ -83,16 +84,18 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
 
         self.pFFT = self.ui.gFFT.plot(pen='k')
         pi = self.ui.gFFT.plotItem
-        pi.setTitle('Frequency Space Output')
-        pi.setLabel('left', 'Mag')
-        pi.setLabel('bottom', 'Pixel-1')
-        pi.setLogMode(y=True)
+        pi.setTitle('Peak fit')
+        pi.setLabel('left', 'Pixel')
+        pi.setLabel('bottom', 'Peak num')
+        # pi.setLogMode(y=True)
 
         self.debugElements = [
             self.ui.gRealSpace,
             self.ui.gFFT,
             self.ui.bSave,
-            self.ui.gbSaveName
+            self.ui.gbSaveName,
+            self.ui.gbSpacing,
+            self.ui.gbPhase
         ]
         self.ui.mExtrasDebugmode.triggered.connect(self.toggleDebugFeatures)
         self.ui.bSave.clicked.connect(self.saveOutput)
@@ -129,13 +132,12 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
     def loopArduinoCalls(self):
         while self.doLoop:
             try:
-                newData = self.arduino.read_values(self.ui.tExposure.value())
+                newData = self.arduino.read_values(self.ui.tExposure.value())[20:-5][::-1]
                 if not newData:
                     self.sigUpdateGraphs.emit('r')
                     continue
-                self.arduinoData = newData
+                self.arduinoData = np.array(newData)
                 self.doWavelengthCalculation()
-                self.fftData = np.abs(np.fft.rfft(newData))
 
                 self.sigUpdateGraphs.emit('k')
             except AttributeError:
@@ -143,35 +145,40 @@ class ArduinoWavemeterWindow(QtGui.QMainWindow):
             time.sleep(0.5)
 
     def doWavelengthCalculation(self):
-        try:
-            wl = getWavelength(self.arduinoData)
-        except Exception as e:
-            print "Error calculating wavelength", e
-            import traceback
-            traceback.print_stack()
-        else:
-            if wl is None:
-                wl = -1
-                # MessageDialog("Error with fit!")
-            self.wavelengthNM = wl
-            self.wavelengthCM = 1e7/wl
+        debug = []
+        wl = getWavelength(self.arduinoData, debug)
+        if not debug:
+            # prevent exceptions if there's nothign to fit
+            debug = [[0, 0], [],[]]
+        self.debug = debug
+        if wl is None:
+            wl = -1
+            # MessageDialog("Error with fit!")
+        self.wavelengthNM = wl
+        self.wavelengthCM = 1e7/wl
 
 
     def updateGraphs(self, pen='k'):
         if not pen=='r':
-            self.ui.tWavelengthnm.setText(str(self.wavelengthNM))
-            self.ui.tWavelengthcm.setText(str(self.wavelengthCM))
+            self.ui.tWavelengthnm.setText("{:.3f}".format(self.wavelengthNM))
+            self.ui.tWavelengthcm.setText("{:.3f}".format(self.wavelengthCM))
         if not self.ui.mExtrasDebugmode.isChecked():
             return
+        self.ui.tSpacing.setText("{:.4f}".format(self.debug[0][0]))
+        self.ui.tPhase.setText("{:.4f}".format(self.debug[0][1]))
         try:
             self.pRealSpace.setData(self.arduinoData, pen=pen)
-            self.pFFT.setData(self.fftData, pen=pen)
+            self.pFFT.setData(self.debug[1],self.debug[2], pen=pen)
         except Exception as e:
-            print self.arduinoData, type(self.arduinoData)
+            print "ERRO UPDATING", e
 
     def toggleDebugFeatures(self, b):
         for e in self.debugElements:
             e.setVisible(b)
+        if b:
+            print "it's debug time!"
+            self.ui.splitter_2.setStretchFactor(0, 1000)
+            self.ui.splitter_2.setStretchFactor(1, 1)
 
     def saveOutput(self):
         try:

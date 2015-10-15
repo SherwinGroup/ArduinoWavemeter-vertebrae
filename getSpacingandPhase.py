@@ -57,95 +57,58 @@ def group_data(data):
 
 
 
-def fitInterference(data, cutoff = -.2, smooth = True, debugging = False):
+def fitInterference(data, cutoff = -.2, smooth = False, debugging = False):
     if smooth:
         # running average
         data = (np.cumsum(data)[2:] - np.cumsum(data)[:-2])/2
-    data -= min(data)
-    if cutoff < 0:
-        cutoff = abs(cutoff) * max(data)
-    if debugging:
-        plt.plot(data)
 
-    idxs = np.argwhere(data>cutoff)
+    data-=min(data)
 
-    # weird issue with it returning a nx1, but I just want 1d
-    idxs = idxs.reshape(len(idxs))
+    maxPositions, firstObservedPeakPos = getPeaks(data, cutoff, smooth, debugging)    
 
-    # separate them by separation
-    groupedIdxs = group_data(idxs)
-
-    maxPositions = []
-    firstObservedPeakPos = np.inf
-    for group in groupedIdxs:
-        # skip if the figure isn't there
-        if not group:
-            continue
-        # plot the cutoff group for debugging
-        if debugging:
-            plt.plot(group, data[group], linewidth=5)
-
-        # catch warnings to prevent weird behavior later
-        # (and flooding the console)
-        with warnings.catch_warnings():
-            warnings.filterwarnings('error')
-            try:
-                p = np.polyfit(group, data[group], deg=2)
-
-            except np.RankWarning:
-                continue
-            except RuntimeWarning:
-                continue
-        # positive concavity, not a correct fit
-        if p[0]>0:
-            continue
-        # peaks fit is too broad to be real, skip it
-        if np.abs(np.sqrt(p[1]**2-4*p[0]*p[2])/p[0])>100:
-            continue
-        # plot the fits for debugging
-        if debugging:
-            plt.plot(range(len(data)), np.polyval(p, range(len(data))))
-        # valid peak found, add it to the list
-        maxPositions.append(-p[1]/(2*p[0]))
-        # get the first peak
-        if np.mean(group)<firstObservedPeakPos:
-            firstObservedPeakPos = maxPositions[-1]
-    if not maxPositions:
+    if not list(maxPositions):
         print "Error! Exposure is too low! Can't calibrate!"
         return -1, -1
 
     if debugging:
-        print np.diff(maxPositions)
-        print [np.abs(range(len(data))-ii).argmin() for ii in maxPositions]
+        print 'spacings:',np.diff(maxPositions)
+        print 'index of closest', [np.abs(range(len(data))-ii).argmin() for ii in maxPositions]
         maxHeights = data[[np.abs(range(len(data))-ii).argmin() for ii in maxPositions]]
+        plt.figure('Peak Fits')
         plt.plot(maxPositions, maxHeights, 'o', markersize=20)
         plt.ylim(0, max(data))
+    # calibration factor for relinearizations, rescale by a cubic
+    # maxPositions = np.polyval([-1.10956145e-9, -0.84978583e-5, 1, 0], maxPositions)
+    # maxPositions = np.polyval([ 2.5688809e-9 ,  0.41668376e-5, 1, 0], maxPositions)
 
-    startPos = int(firstObservedPeakPos/np.mean(np.diff(maxPositions)))
+    p = np.polyfit(range(len(maxPositions)), maxPositions, deg=1)
+    # print '\n\nThe phase is {}\n\n'.format(firstObservedPeakPos/p[0])
+    startPos = int(firstObservedPeakPos/p[0])
     p = np.polyfit(range(startPos, startPos + len(maxPositions)), maxPositions, deg=1)
     if debugging:
-        plt. figure()
+        plt. figure('Fit')
         plt.plot(range(startPos, startPos + len(maxPositions)), maxPositions, 'o-')
         plt.plot([0, startPos + len(maxPositions)], 
             np.polyval(p, [0, startPos + len(maxPositions)]))
 
     if debugging:
-        plt.show()
+        # plt.show()
+        pass
 
     # return the interference spacing, in nm
     # and the relative intercept
-    return p[0]*14e3, p[1]/p[0]
+    return p[0]*14e3, -p[1]/p[0]
 
 
 
-def getPeaks(data, cutoff = -.2, smooth = True, debugging = False):
+def getPeaks(data, cutoff = -.2, smooth = False, debugging = False):
     if smooth:
         # running average
         data = (np.cumsum(data)[2:] - np.cumsum(data)[:-2])/2
-    data -= min(data)
     if cutoff < 0:
         cutoff = abs(cutoff) * max(data)
     if debugging:
+        plt.figure('Peak Fits')
         plt.plot(data)
 
     idxs = np.argwhere(data>cutoff)
@@ -161,6 +124,8 @@ def getPeaks(data, cutoff = -.2, smooth = True, debugging = False):
     for group in groupedIdxs:
         # skip if the figure isn't there
         if not group:
+            continue
+        if 0 in group or len(data) in group:
             continue
         # plot the cutoff group for debugging
         if debugging:
@@ -192,7 +157,7 @@ def getPeaks(data, cutoff = -.2, smooth = True, debugging = False):
         if np.mean(group)<firstObservedPeakPos:
             firstObservedPeakPos = maxPositions[-1]
 
-    return maxPositions
+    return np.array(maxPositions), firstObservedPeakPos
 
 if __name__ == '__main__':
     path = r'Z:\Darren\Data\2015\10-6 Wavemeter forms'
@@ -205,5 +170,9 @@ if __name__ == '__main__':
 
     b1 = np.loadtxt(blanklist[0])
     l1 = np.loadtxt(list461[4])
-    for f in list632:
-        print fitInterference(np.loadtxt(f), debugging=False)
+    for f in list461[:1]:
+        try:
+            print fitInterference(np.loadtxt(f), debugging=True)
+        except:
+            plt.show()
+            raise

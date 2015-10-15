@@ -17,10 +17,22 @@
    <layout class="QHBoxLayout" name="horizontalLayout_5">
     <item>
      <widget class="QSplitter" name="splitter_2">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
       <widget class="QSplitter" name="splitter">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>10</verstretch>
+        </sizepolicy>
+       </property>
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -34,6 +46,9 @@
           <property name="title">
            <string>GPIB</string>
           </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
           <layout class="QHBoxLayout" name="horizontalLayout_4">
            <item>
             <widget class="QComboBox" name="cGPIB"/>
@@ -45,6 +60,9 @@
          <widget class="QGroupBox" name="groupBox_3">
           <property name="title">
            <string>Exposure (ms)</string>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <property name="leftMargin">
@@ -73,6 +91,9 @@
          <widget class="QGroupBox" name="groupBox">
           <property name="title">
            <string>Wavelength (nm)</string>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout">
            <property name="leftMargin">
@@ -104,6 +125,9 @@
          <widget class="QGroupBox" name="groupBox_2">
           <property name="title">
            <string>Wavelength (cm-1)</string>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <property name="leftMargin">
@@ -194,6 +218,68 @@
            </widget>
           </item>
          </layout>
+        </item>
+        <item row="2" column="0">
+         <widget class="QGroupBox" name="gbSpacing">
+          <property name="title">
+           <string>Spacing</string>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_8">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="tSpacing">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QGroupBox" name="gbPhase">
+          <property name="title">
+           <string>Phase</string>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_9">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="tPhase">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </item>
        </layout>
       </widget>
